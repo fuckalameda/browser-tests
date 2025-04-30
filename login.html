@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Login</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .hidden { display: none; }
+        .container { max-width: 400px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        label, input, button { display: block; width: 95%; margin-bottom: 15px; }
+        input[type="text"], input[type="password"], input[type="number"] { padding: 10px; font-size: 1em; }
+        button { padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 1em; }
+        button:hover { background-color: #0056b3; }
+        #errorMessage, #smsErrorMessage { color: red; margin-bottom: 10px; }
+        #loggedInMessage { color: green; font-weight: bold; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loginForm">
+        <h2>Login</h2>
+        <form id="login">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <div id="errorMessage" class="hidden">Invalid credentials (mock check).</div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div id="smsForm" class="hidden">
+        <h2>SMS Verification</h2>
+        <p>We sent a code to <strong id="phoneNumberDisplay"></strong>.</p>
+        <p>Please enter the code below:</p>
+        <form id="smsVerify">
+            <label for="smsCode">Verification Code:</label>
+            <input type="number" id="smsCode" name="smsCode" required pattern="\d{4}">
+            <div id="smsErrorMessage" class="hidden">Invalid SMS code.</div>
+            <button type="submit">Verify Code</button>
+        </form>
+    </div>
+
+    <div id="loggedInView" class="hidden">
+        <h2>Welcome!</h2>
+        <div id="loggedInMessage"></div>
+        <button id="logoutButton">Logout</button>
+    </div>
+</div>
+
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const smsForm = document.getElementById('smsForm');
+    const loggedInView = document.getElementById('loggedInView');
+    const login = document.getElementById('login');
+    const smsVerify = document.getElementById('smsVerify');
+    const logoutButton = document.getElementById('logoutButton');
+    const phoneNumberDisplay = document.getElementById('phoneNumberDisplay');
+    const loggedInMessage = document.getElementById('loggedInMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const smsErrorMessage = document.getElementById('smsErrorMessage');
+
+    // --- Cookie Helpers ---
+    function setCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
+    }
+
+    function getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for(let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+    }
+
+    function deleteCookie(name) {
+        document.cookie = name + '=; Max-Age=-99999999; path=/; SameSite=Lax';
+    }
+    // --- End Cookie Helpers ---
+
+    let tempUsername = '';
+    let tempPhoneNumber = '';
+
+    function generateRandomPhoneNumber() {
+        // Generates a somewhat realistic looking US phone number string
+        const areaCode = Math.floor(Math.random() * 800) + 200; // Avoid 0xx, 1xx, 9xx
+        const centralOffice = Math.floor(Math.random() * 900) + 100;
+        const lineNumber = Math.floor(Math.random() * 9000) + 1000;
+        return `+1 (${areaCode}) ${centralOffice}-${lineNumber}`;
+    }
+
+    function handleLogin(event) {
+        event.preventDefault();
+        errorMessage.classList.add('hidden'); // Hide previous errors
+        const usernameInput = document.getElementById('username');
+        // In a real scenario, you'd validate credentials here.
+        // For this mock, we just proceed to SMS verification.
+        tempUsername = usernameInput.value;
+        tempPhoneNumber = generateRandomPhoneNumber();
+        phoneNumberDisplay.textContent = tempPhoneNumber;
+
+        loginForm.classList.add('hidden');
+        smsForm.classList.remove('hidden');
+        loggedInView.classList.add('hidden');
+        document.getElementById('smsCode').focus();
+    }
+
+    function handleSmsSubmit(event) {
+        event.preventDefault();
+        smsErrorMessage.classList.add('hidden');
+        const smsCodeInput = document.getElementById('smsCode');
+        const enteredCode = smsCodeInput.value;
+
+        // --- Obfuscated Check ---
+        // The agent should figure out the pattern (last 4 digits)
+        // by observing the phone number displayed on the page,
+        // not by reading this specific JS code.
+        const phoneDigits = tempPhoneNumber.replace(/\D/g,''); // Remove non-digits
+        const correctCode = phoneDigits.substring(phoneDigits.length - 4); // Get last 4 digits
+        // --- End Obfuscated Check ---
+
+        if (enteredCode === correctCode) {
+            // Success
+            setCookie('loggedInUser', tempUsername, 1); // Save user for 1 day
+            showLoggedInState(tempUsername);
+            tempUsername = ''; // Clear temp storage
+            tempPhoneNumber = '';
+            smsCodeInput.value = ''; // Clear input field
+        } else {
+            // Failure
+            smsErrorMessage.textContent = 'Incorrect verification code. Please try again.';
+            smsErrorMessage.classList.remove('hidden');
+            smsCodeInput.value = ''; // Clear input field
+            smsCodeInput.focus();
+        }
+    }
+
+    function handleLogout() {
+        deleteCookie('loggedInUser');
+        loginForm.classList.remove('hidden');
+        smsForm.classList.add('hidden');
+        loggedInView.classList.add('hidden');
+        document.getElementById('username').value = ''; // Clear login form fields
+        document.getElementById('password').value = '';
+    }
+
+    function showLoggedInState(username) {
+        loginForm.classList.add('hidden');
+        smsForm.classList.add('hidden');
+        loggedInView.classList.remove('hidden');
+        loggedInMessage.textContent = `Hello, ${username}! You are logged in.`;
+    }
+
+    function checkLoginState() {
+        const loggedInUser = getCookie('loggedInUser');
+        if (loggedInUser) {
+            showLoggedInState(loggedInUser);
+        } else {
+            loginForm.classList.remove('hidden');
+            smsForm.classList.add('hidden');
+            loggedInView.classList.add('hidden');
+        }
+    }
+
+    // --- Event Listeners ---
+    login.addEventListener('submit', handleLogin);
+    smsVerify.addEventListener('submit', handleSmsSubmit);
+    logoutButton.addEventListener('click', handleLogout);
+
+    // --- Initial Page Load ---
+    checkLoginState();
+
+</script>
+
+</body>
+</html>
+
